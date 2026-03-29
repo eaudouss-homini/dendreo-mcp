@@ -1,6 +1,3 @@
-// ============================================================
-// index.ts — Point d'entrée du serveur MCP Dendreo
-// ============================================================
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createServer } from "http";
@@ -12,44 +9,28 @@ import { registerEntrepriseTools } from "./tools/entreprises.js";
 import { registerFormateurTools } from "./tools/formateurs.js";
 import { registerCatalogueTools } from "./tools/catalogue.js";
 
-// ── Configuration ─────────────────────────────────────────
-// Ces valeurs sont lues depuis les variables d'environnement.
-// Ne mettez JAMAIS vos clés directement dans le code !
 const DENDREO_BASE_URL = process.env.DENDREO_BASE_URL;
 const DENDREO_API_KEY  = process.env.DENDREO_API_KEY;
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
 if (!DENDREO_BASE_URL || !DENDREO_API_KEY) {
   console.error("❌ Variables d'environnement manquantes :");
-  console.error("   DENDREO_BASE_URL  — ex: https://pro.dendreo.com/VOTRE_COMPTE/api");
-  console.error("   DENDREO_API_KEY   — votre clé API Dendreo");
+  console.error("   DENDREO_BASE_URL");
+  console.error("   DENDREO_API_KEY");
   process.exit(1);
 }
 
-// ── Client Dendreo ────────────────────────────────────────
-const client = new DendreoClient({
-  baseUrl: DENDREO_BASE_URL,
-  apiKey: DENDREO_API_KEY,
-});
+const client = new DendreoClient({ baseUrl: DENDREO_BASE_URL, apiKey: DENDREO_API_KEY });
 
-// ── Serveur MCP ───────────────────────────────────────────
-const server = new McpServer({
-  name: "dendreo-mcp",
-  version: "1.0.0",
-});
-
-// Enregistrement de tous les outils
-registerAdfTools(server, client);
-registerParticipantTools(server, client);
-registerEntrepriseTools(server, client);
-registerFormateurTools(server, client);
-registerCatalogueTools(server, client);
-
-// ── Transport HTTP ────────────────────────────────────────
-const transport = new StreamableHTTPServerTransport({
-  sessionIdGenerator: undefined,
-});
-await server.connect(transport);
+function createMcpServer() {
+  const server = new McpServer({ name: "dendreo-mcp", version: "1.0.0" });
+  registerAdfTools(server, client);
+  registerParticipantTools(server, client);
+  registerEntrepriseTools(server, client);
+  registerFormateurTools(server, client);
+  registerCatalogueTools(server, client);
+  return server;
+}
 
 const httpServer = createServer(async (req, res) => {
   if (req.url === "/health" && req.method === "GET") {
@@ -58,6 +39,9 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
   if (req.url === "/mcp") {
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    const server = createMcpServer();
+    await server.connect(transport);
     await transport.handleRequest(req, res);
     return;
   }
@@ -67,6 +51,4 @@ const httpServer = createServer(async (req, res) => {
 
 httpServer.listen(PORT, () => {
   console.log(`✅ Serveur MCP Dendreo démarré sur le port ${PORT}`);
-  console.log(`   URL MCP : http://localhost:${PORT}/mcp`);
-  console.log(`   Health  : http://localhost:${PORT}/health`);
 });

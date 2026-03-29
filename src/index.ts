@@ -46,27 +46,27 @@ registerFormateurTools(server, client);
 registerCatalogueTools(server, client);
 
 // ── Transport HTTP ────────────────────────────────────────
-const transport = new StreamableHTTPServerTransport({ path: "/mcp" });
+const transport = new StreamableHTTPServerTransport({
+  sessionIdGenerator: undefined,
+});
 await server.connect(transport);
 
-const httpServer = createServer((req, res) => {
-  // Health check
+const httpServer = createServer(async (req, res) => {
   if (req.url === "/health" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok", server: "dendreo-mcp" }));
     return;
   }
-  transport.handleRequest(req, res);
+  if (req.url === "/mcp") {
+    await transport.handleRequest(req, res);
+    return;
+  }
+  res.writeHead(404);
+  res.end("Not found");
 });
 
 httpServer.listen(PORT, () => {
   console.log(`✅ Serveur MCP Dendreo démarré sur le port ${PORT}`);
   console.log(`   URL MCP : http://localhost:${PORT}/mcp`);
   console.log(`   Health  : http://localhost:${PORT}/health`);
-  console.log(`\n📋 Outils disponibles :`);
-  console.log(`   Actions de Formation : lister, afficher, créer`);
-  console.log(`   Participants         : lister, afficher, créer, inscriptions`);
-  console.log(`   Entreprises          : lister, afficher, créer, contacts`);
-  console.log(`   Formateurs           : lister, afficher, créer, interventions`);
-  console.log(`   Catalogue            : modules, catégories, prochaines sessions`);
 });
